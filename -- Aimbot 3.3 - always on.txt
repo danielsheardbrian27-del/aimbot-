@@ -1,0 +1,409 @@
+-- Aimbot 3.3
+-- Enemies ONLY aimbot (FOV limited + Infinite Distance)
+-- Detects bots the same as players
+-- Enemy color: click = random bright color | hold Shift + click = color wheel
+-- Tracers + Info start OFF by default
+-- Auto turn off aimbot on death + auto re-attach on respawn
+-- Hotkeys: Right Shift = Menu | E = Aimbot | T = Tracers+Info
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+-- =============== CONFIG ===============
+local AIMBOT_ENABLED_BY_DEFAULT = true
+local TRACERS_ENABLED_BY_DEFAULT = false   -- ← changed to false
+
+local AIMBOT_SMOOTHNESS = 0.3
+
+local ENEMY_COLOR = Color3.fromRGB(255, 0, 0)     -- default red
+
+local TRACER_THICKNESS = 2
+local TRACER_TRANSPARENCY = 0.8
+
+local INFO_TEXT_COLOR = Color3.fromRGB(255, 255, 255)
+local INFO_TEXT_SIZE = 15
+local INFO_BOX_SIZE = Vector2.new(20, 30)
+
+local FOV_RADIUS = 300
+local FOV_COLOR = Color3.fromRGB(255, 255, 255)
+local FOV_THICKNESS = 2
+local FOV_VISIBLE = true
+-- ======================================
+
+local aimbotEnabled = AIMBOT_ENABLED_BY_DEFAULT
+local tracersEnabled = TRACERS_ENABLED_BY_DEFAULT
+local menuVisible = true
+
+-- =============== FOV CIRCLE ===============
+local fovCircle = Drawing.new("Circle")
+fovCircle.Thickness = FOV_THICKNESS
+fovCircle.Color = FOV_COLOR
+fovCircle.Radius = FOV_RADIUS
+fovCircle.Filled = false
+fovCircle.Transparency = 0.8
+fovCircle.Visible = FOV_VISIBLE
+fovCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+-- =============== GUI ===============
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "Aimbot33"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Enabled = true
+ScreenGui.Parent = game:GetService("CoreGui")
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 250, 0, 280)
+MainFrame.Position = UDim2.new(0.5, -125, 0.5, -140)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+Title.Text = "Aimbot 3.3"
+Title.TextColor3 = Color3.new(1,1,1)
+Title.Font = Enum.Font.SourceSansBold
+Title.TextSize = 20
+Title.Parent = MainFrame
+
+local AimbotBtn = Instance.new("TextButton")
+AimbotBtn.Size = UDim2.new(0.9, 0, 0, 35)
+AimbotBtn.Position = UDim2.new(0.05, 0, 0, 40)
+AimbotBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+AimbotBtn.Text = "Aimbot: OFF (E)"
+AimbotBtn.TextColor3 = Color3.new(1,1,1)
+AimbotBtn.Font = Enum.Font.SourceSansBold
+AimbotBtn.TextSize = 16
+AimbotBtn.Parent = MainFrame
+
+local TracerBtn = Instance.new("TextButton")
+TracerBtn.Size = UDim2.new(0.9, 0, 0, 35)
+TracerBtn.Position = UDim2.new(0.05, 0, 0, 85)
+TracerBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+TracerBtn.Text = "Tracers + Info: OFF (T)"
+TracerBtn.TextColor3 = Color3.new(1,1,1)
+TracerBtn.Font = Enum.Font.SourceSansBold
+TracerBtn.TextSize = 16
+TracerBtn.Parent = MainFrame
+
+local EnemyColorBtn = Instance.new("TextButton")
+EnemyColorBtn.Size = UDim2.new(0.9, 0, 0, 35)
+EnemyColorBtn.Position = UDim2.new(0.05, 0, 0, 130)
+EnemyColorBtn.BackgroundColor3 = ENEMY_COLOR
+EnemyColorBtn.Text = "Enemy Color (click = random)"
+EnemyColorBtn.TextColor3 = Color3.new(1,1,1)
+EnemyColorBtn.Font = Enum.Font.SourceSansBold
+EnemyColorBtn.TextSize = 16
+EnemyColorBtn.Parent = MainFrame
+
+local FOVLabel = Instance.new("TextLabel")
+FOVLabel.Size = UDim2.new(0.9, 0, 0, 30)
+FOVLabel.Position = UDim2.new(0.05, 0, 0, 175)
+FOVLabel.BackgroundTransparency = 1
+FOVLabel.Text = "FOV Radius: " .. FOV_RADIUS
+FOVLabel.TextColor3 = Color3.new(1,1,1)
+FOVLabel.Font = Enum.Font.SourceSansBold
+FOVLabel.TextSize = 16
+FOVLabel.Parent = MainFrame
+
+local FOVMinus = Instance.new("TextButton")
+FOVMinus.Size = UDim2.new(0.4, 0, 0, 30)
+FOVMinus.Position = UDim2.new(0.05, 0, 0, 210)
+FOVMinus.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+FOVMinus.Text = "- Smaller"
+FOVMinus.TextColor3 = Color3.new(1,1,1)
+FOVMinus.Font = Enum.Font.SourceSansBold
+FOVMinus.TextSize = 16
+FOVMinus.Parent = MainFrame
+
+local FOVPlus = Instance.new("TextButton")
+FOVPlus.Size = UDim2.new(0.4, 0, 0, 30)
+FOVPlus.Position = UDim2.new(0.55, 0, 0, 210)
+FOVPlus.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+FOVPlus.Text = "+ Bigger"
+FOVPlus.TextColor3 = Color3.new(1,1,1)
+FOVPlus.Font = Enum.Font.SourceSansBold
+FOVPlus.TextSize = 16
+FOVPlus.Parent = MainFrame
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0.9, 0, 0, 30)
+CloseBtn.Position = UDim2.new(0.05, 0, 0, 245)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
+CloseBtn.Text = "Close Menu"
+CloseBtn.TextColor3 = Color3.new(1,1,1)
+CloseBtn.Font = Enum.Font.SourceSansBold
+CloseBtn.TextSize = 16
+CloseBtn.Parent = MainFrame
+
+-- Button logic
+AimbotBtn.MouseButton1Click:Connect(function()
+    aimbotEnabled = not aimbotEnabled
+    AimbotBtn.Text = "Aimbot: " .. (aimbotEnabled and "ON" or "OFF") .. " (E)"
+    AimbotBtn.BackgroundColor3 = aimbotEnabled and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+end)
+
+TracerBtn.MouseButton1Click:Connect(function()
+    tracersEnabled = not tracersEnabled
+    TracerBtn.Text = "Tracers + Info: " .. (tracersEnabled and "ON" or "OFF") .. " (T)"
+    TracerBtn.BackgroundColor3 = tracersEnabled and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+end)
+
+-- Enemy color: random bright color on click | hold Shift = open picker
+EnemyColorBtn.MouseButton1Click:Connect(function()
+    if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or UserInputService:IsKeyDown(Enum.KeyCode.RightShift) then
+        local picker = Instance.new("Color3Picker")
+        picker.Parent = ScreenGui
+        picker.Position = UDim2.new(0.5, -110, 0.5, -110)
+        picker.Size = UDim2.new(0, 220, 0, 220)
+        picker.AnchorPoint = Vector2.new(0.5, 0.5)
+        picker.Color = ENEMY_COLOR
+        
+        local conn = picker:GetPropertyChangedSignal("Color"):Connect(function()
+            ENEMY_COLOR = picker.Color
+            EnemyColorBtn.BackgroundColor3 = ENEMY_COLOR
+        end)
+        
+        picker.Destroying:Connect(function()
+            conn:Disconnect()
+        end)
+    else
+        -- Random bright color
+        local hue = math.random(0, 360)
+        local sat = math.random(70, 100)/100
+        local val = math.random(80, 100)/100
+        ENEMY_COLOR = Color3.fromHSV(hue/360, sat, val)
+        EnemyColorBtn.BackgroundColor3 = ENEMY_COLOR
+    end
+end)
+
+FOVMinus.MouseButton1Click:Connect(function()
+    FOV_RADIUS = math.max(50, FOV_RADIUS - 25)
+    fovCircle.Radius = FOV_RADIUS
+    FOVLabel.Text = "FOV Radius: " .. FOV_RADIUS
+end)
+
+FOVPlus.MouseButton1Click:Connect(function()
+    FOV_RADIUS = FOV_RADIUS + 25
+    fovCircle.Radius = FOV_RADIUS
+    FOVLabel.Text = "FOV Radius: " .. FOV_RADIUS
+end)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    ScreenGui.Enabled = false
+end)
+
+-- =============== PLAYER DRAWINGS ===============
+local PlayerDrawings = {}
+
+local function CreatePlayerInfo(player)
+    if player == LocalPlayer then return end
+    local info = {}
+    info.line = Drawing.new("Line")
+    info.line.Thickness = TRACER_THICKNESS
+    info.line.Transparency = TRACER_TRANSPARENCY
+    info.line.Visible = false
+    
+    info.box = Drawing.new("Square")
+    info.box.Size = INFO_BOX_SIZE
+    info.box.Thickness = 1.5
+    info.box.Filled = false
+    info.box.Transparency = 0.9
+    info.box.Visible = false
+    
+    info.nameText = Drawing.new("Text")
+    info.nameText.Text = player.DisplayName or player.Name
+    info.nameText.Size = INFO_TEXT_SIZE
+    info.nameText.Color = INFO_TEXT_COLOR
+    info.nameText.Outline = true
+    info.nameText.Center = true
+    info.nameText.Visible = false
+    
+    info.hpText = Drawing.new("Text")
+    info.hpText.Size = INFO_TEXT_SIZE
+    info.hpText.Color = INFO_TEXT_COLOR
+    info.hpText.Outline = true
+    info.hpText.Center = true
+    info.hpText.Visible = false
+    
+    info.distText = Drawing.new("Text")
+    info.distText.Size = INFO_TEXT_SIZE
+    info.distText.Color = INFO_TEXT_COLOR
+    info.distText.Outline = true
+    info.distText.Center = true
+    info.distText.Visible = false
+    
+    PlayerDrawings[player] = info
+end
+
+local function RemovePlayerInfo(player)
+    if PlayerDrawings[player] then
+        local i = PlayerDrawings[player]
+        i.line:Remove()
+        i.box:Remove()
+        i.nameText:Remove()
+        i.hpText:Remove()
+        i.distText:Remove()
+        PlayerDrawings[player] = nil
+    end
+end
+
+for _, plr in ipairs(Players:GetPlayers()) do CreatePlayerInfo(plr) end
+Players.PlayerAdded:Connect(CreatePlayerInfo)
+Players.PlayerRemoving:Connect(RemovePlayerInfo)
+
+-- =============== AUTO OFF ON DEATH + AUTO ATTACH ===============
+local function SetupDeathHook(char)
+    local hum = char:WaitForChild("Humanoid", 5)
+    if hum then
+        hum.Died:Connect(function()
+            if aimbotEnabled then
+                aimbotEnabled = false
+                AimbotBtn.Text = "Aimbot: OFF (E)"
+                AimbotBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+                print("Aimbot 3.2: Auto turned OFF (died)")
+            end
+        end)
+    end
+end
+
+LocalPlayer.CharacterAdded:Connect(SetupDeathHook)
+if LocalPlayer.Character then
+    SetupDeathHook(LocalPlayer.Character)
+end
+
+-- =============== AIMBOT (skip dead) ===============
+local function IsVisible(targetPart)
+    if not LocalPlayer.Character then return false end
+    local origin = Camera.CFrame.Position
+    local direction = (targetPart.Position - origin)
+    local rayParams = RaycastParams.new()
+    rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
+    rayParams.FilterType = Enum.RaycastFilterType.Exclude
+    local result = workspace:Raycast(origin, direction, rayParams)
+    return not result or result.Instance:IsDescendantOf(targetPart.Parent)
+end
+
+local function GetClosestVisibleEnemyInFOV()
+    local closest = nil
+    local shortestDist = math.huge
+    local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local head = player.Character:FindFirstChild("Head")
+            local humanoid = player.Character:FindFirstChild("Humanoid")
+            
+            if head and humanoid and humanoid.Health > 0 then
+                local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
+                if onScreen then
+                    local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+                    if screenDist < FOV_RADIUS and IsVisible(head) then
+                        local worldDist = (head.Position - Camera.CFrame.Position).Magnitude
+                        if worldDist < shortestDist then
+                            shortestDist = worldDist
+                            closest = player
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return closest
+end
+
+-- =============== MAIN LOOP ===============
+RunService.RenderStepped:Connect(function()
+    fovCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+    if aimbotEnabled and LocalPlayer.Character then
+        local target = GetClosestVisibleEnemyInFOV()
+        if target and target.Character and target.Character:FindFirstChild("Head") then
+            local targetPos = target.Character.Head.Position
+            local currentCFrame = Camera.CFrame
+            local targetCFrame = CFrame.lookAt(currentCFrame.Position, targetPos)
+            Camera.CFrame = currentCFrame:Lerp(targetCFrame, AIMBOT_SMOOTHNESS)
+        end
+    end
+
+    local bottomCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y - 5)
+    
+    for player, info in pairs(PlayerDrawings) do
+        if tracersEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local root = player.Character.HumanoidRootPart
+            local vector, onScreen = Camera:WorldToViewportPoint(root.Position)
+            
+            if onScreen then
+                local screenPos = Vector2.new(vector.X, vector.Y)
+                
+                info.line.From = bottomCenter
+                info.line.To = screenPos
+                info.line.Color = ENEMY_COLOR
+                info.line.Visible = true
+                
+                info.box.Position = screenPos - INFO_BOX_SIZE / 2
+                info.box.Color = ENEMY_COLOR
+                info.box.Visible = true
+                
+                info.nameText.Text = player.DisplayName or player.Name
+                info.nameText.Position = screenPos - Vector2.new(0, 45)
+                info.nameText.Visible = true
+                
+                local humanoid = player.Character:FindFirstChild("Humanoid")
+                local hpStr = humanoid and string.format("HP: %.0f/%.0f", humanoid.Health, humanoid.MaxHealth) or "HP: 0/0"
+                info.hpText.Text = hpStr
+                info.hpText.Position = screenPos + Vector2.new(0, 22)
+                info.hpText.Visible = true
+                
+                local dist = 0
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    dist = math.floor((root.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude)
+                end
+                info.distText.Text = dist .. " studs"
+                info.distText.Position = screenPos + Vector2.new(0, 40)
+                info.distText.Visible = true
+            else
+                info.line.Visible = false
+                info.box.Visible = false
+                info.nameText.Visible = false
+                info.hpText.Visible = false
+                info.distText.Visible = false
+            end
+        else
+            info.line.Visible = false
+            info.box.Visible = false
+            info.nameText.Visible = false
+            info.hpText.Visible = false
+            info.distText.Visible = false
+        end
+    end
+end)
+
+-- =============== HOTKEYS ===============
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+
+    if input.KeyCode == Enum.KeyCode.RightShift then
+        menuVisible = not menuVisible
+        ScreenGui.Enabled = menuVisible
+    elseif input.KeyCode == Enum.KeyCode.E then
+        aimbotEnabled = not aimbotEnabled
+        AimbotBtn.Text = "Aimbot: " .. (aimbotEnabled and "ON" or "OFF") .. " (E)"
+        AimbotBtn.BackgroundColor3 = aimbotEnabled and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+    elseif input.KeyCode == Enum.KeyCode.T then
+        tracersEnabled = not tracersEnabled
+        TracerBtn.Text = "Tracers + Info: " .. (tracersEnabled and "ON" or "OFF") .. " (T)"
+        TracerBtn.BackgroundColor3 = tracersEnabled and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+    end
+end)
+
+print("Aimbot 3.3 loaded!")
+print("Tracers now start OFF by default")
+print("Click 'Enemy Color' = random bright | Hold Shift + click = color wheel")
+print("Hotkeys: Right Shift = Menu | E = Aimbot | T = Tracers+Info")
